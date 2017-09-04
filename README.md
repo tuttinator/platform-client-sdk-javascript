@@ -1,6 +1,25 @@
 ---
 title: JavaScript SDK
 ---
+
+
+Temporary fork to enable proxy support.
+
+Usage:
+
+```js
+const platformClient = require('purecloud-platform-client-v2');
+const superagentProxy = require('superagent-proxy');
+
+var client = platformClient.ApiClient.instance;
+client.setEnvironment('mypurecloud.com');
+client.setProxy(superagentProxy, 'http://myproxyurl.local:80');
+
+...
+```
+
+
+
 A JavaScript library to interface with the PureCloud Platform API
 
 [![GitHub release](https://img.shields.io/github/release/mypurecloud/platform-client-sdk-javascript.svg)]()
