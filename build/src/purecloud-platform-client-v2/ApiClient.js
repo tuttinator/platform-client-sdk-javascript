@@ -210,10 +210,22 @@
         return;
       }
 
+      var requestHandler;
+      if(self._proxyRequests == true) {
+        // console.log("Proxying through ", self._proxyUrl);
+        requestHandler = self._proxyWrapperFunc(superagent);
+      } else {
+        requestHandler = superagent;
+      }
+
       // Build token request
-      var request = superagent('POST', `https://login.${self.environment}/oauth/token`);
+      var request = requestHandler('POST', `https://login.${self.environment}/oauth/token`);
       request.set('Authorization', `Basic ${authHeader}`);
       request.send('grant_type=client_credentials');
+
+      if(self._proxyRequests == true) {
+        request.proxy(self._proxyUrl)
+      }
 
       // Execute request
       request.end(function(error, response) {
@@ -244,7 +256,7 @@
       }
 
       // Test token
-      self.callApi('/api/v2/authorization/permissions', 'GET', 
+      self.callApi('/api/v2/authorization/permissions', 'GET',
         null, null, null, null, null, ['PureCloud Auth'], ['application/json'], ['application/json'])
         .then(function(roles) {
           self._saveSettings();
@@ -443,7 +455,7 @@
   /**
    * Checks whether the given parameter value represents file-like content.
    * @param param The parameter to check.
-   * @returns {Boolean} <code>true</code> if <code>param</code> represents a file. 
+   * @returns {Boolean} <code>true</code> if <code>param</code> represents a file.
    */
   exports.prototype.isFileParam = function(param) {
     // fs.ReadStream in Node.js (but not in runtime like browserify)
@@ -495,7 +507,7 @@
 
   /**
    * Enumeration of collection format separator strategies.
-   * @enum {String} 
+   * @enum {String}
    * @readonly
    */
   exports.CollectionFormatEnum = {
@@ -594,6 +606,20 @@
     });
   };
 
+  /* Request mutator */
+  exports.prototype.setProxy = function(wrapperFunc, proxyUrl) {
+    // console.log("setProxy called...")
+    this._proxyRequests = true;
+    this._proxyWrapperFunc = wrapperFunc;
+    this._proxyUrl = proxyUrl || process.env.http_proxy;
+  };
+
+  exports.prototype.unsetProxy = function() {
+    this._proxyRequests = undefined;
+    this._proxyWrapperFunc = undefined;
+    this._proxyUrl = undefined;
+  };
+
   /**
    * Invokes the REST service using the supplied settings and parameters.
    * @param {String} path The base URL to invoke.
@@ -613,7 +639,16 @@
 
     var _this = this;
     var url = this.buildUrl(path, pathParams);
-    var request = superagent(httpMethod, url);
+    var requestHandler;
+    if(this._proxyRequests == true) {
+      requestHandler = this._proxyWrapperFunc(superagent);
+    } else {
+      requestHandler = superagent;
+    }
+
+    var request = requestHandler(httpMethod, url);
+
+
 
     if(this.debugLog){
       var trace = `[REQUEST] ${httpMethod} ${url}`;
@@ -673,6 +708,10 @@
     var accept = this.jsonPreferredMime(accepts);
     if (accept) {
       request.accept(accept);
+    }
+
+    if(this._proxyRequests == true) {
+      request.proxy(this._proxyUrl)
     }
 
     return new Promise(function(resolve, reject) {
